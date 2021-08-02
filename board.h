@@ -1,0 +1,46 @@
+#ifndef _YIHE_BOARD_H_
+#define _YIHE_BOARD_H_
+
+#include "apt8l08_key.h"
+//key
+#define ROW0				GPIO_PB5
+#define ROW1				GPIO_PD4
+#define ROW2				GPIO_PC5
+
+#define COL0				GPIO_PC6
+#define COL1				GPIO_PB7
+#define COL2				GPIO_PC4
+#define COL3				GPIO_PB1
+
+#define APT8L08_INT  GPIO_PD3
+
+#define MAX_GPIO_KEYS 10
+
+#define MAX_TOUCH_KEYS 8
+
+#define MAX_KEYS (MAX_GPIO_KEYS + MAX_TOUCH_KEYS)
+
+//dc
+#define DCDC_CE	GPIO_PA1
+
+//led
+#define AW9523_RSTN GPIO_PA0
+
+#define HAL_LED_ALL   (HAL_LED_1 | HAL_LED_2 | HAL_LED_3 | HAL_LED_4 | HAL_LED_5 | HAL_LED_6 |\
+    HAL_LED_7 | HAL_LED_8 | HAL_LED_9 | HAL_LED_10 | HAL_LED_11 | HAL_LED_12 | HAL_LED_13 |\
+    HAL_LED_14 | HAL_LED_15 )
+
+#define MAX_LEDS 15
+
+//i2c
+#define APT8L08_I2C_PORT I2C_GPIO_GROUP_B6D7
+#define APT8L08_I2C_SDA  GPIO_PB6
+#define APT8L08_I2C_SCL  GPIO_PD7
+
+#define AW9523_I2C_PORT  I2C_GPIO_GROUP_C0C1
+#define AW9523_I2C_SDA  GPIO_PC0
+#define AW9523_I2C_SCL  GPIO_PC1
+
+//adc
+#define ADC_INPUT_PIN GPIO_PB4
+#endif
