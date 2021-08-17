@@ -90,12 +90,13 @@ extern _attribute_data_retention_  now_level_t now_level;
 #define PWM_ON_DUTY 60     //US
 
 #define LED_BRIGHT_LEVEL 40
-//#define LED_BRIGHT_LEVEL 255
 
 #define PAIR_KEY_VALUE	0x55
 #define MAX_EVENT       55//the number is the register_key_event call times
 
-extern bool peidui_ok;
+extern bool peidui_ok_exit;
+extern bool reload_led_off;
+extern u32 peidui_ok_exit_time;
 
 extern void app_init();
 extern void power_on_led();

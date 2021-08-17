@@ -254,7 +254,9 @@ typedef enum{
   ZUOWEN_INDEX
 }user_en_t;
 
-bool peidui_ok;
+bool reload_led_off;
+bool peidui_ok_exit;
+u32  peidui_ok_exit_time;
 
 _attribute_data_retention_ static u32 uid;
 _attribute_data_retention_ static u32 new_id;
@@ -370,12 +372,10 @@ void set_led_level_on(u32 led)
   if(low_power){
     led &= ~T_LED_ZUOWEN_INDICATE;
     ledoff = led ^ (T_LED_FENGWEN_INDICATE | T_LED_SHUIWEN_INDICATE);
-    HalLedSet (ledoff, HAL_LED_MODE_OFF);
-  }else{
+  }else
     ledoff = led ^ (T_LED_FENGWEN_INDICATE | T_LED_ZUOWEN_INDICATE| T_LED_SHUIWEN_INDICATE);
-    HalLedSet (ledoff, HAL_LED_MODE_OFF);
-  }
 
+  HalLedSet (ledoff, HAL_LED_MODE_OFF);
   HalLedBlink (led, 1, 100, MS2TICK(LEVEL_INDI_LED_ON_TIME));
 }
 
@@ -414,16 +414,16 @@ u32 chk_now_level_led(now_level_t level)
   u32 level_ind;
 
   switch(level){
-  case NOW_FENGWEN:
-	temp = get_user_value(FENGWEN_INDEX);
-	level_ind = unset_led_level(temp);break;
-  case NOW_SHUIWEN:
-    temp = get_user_value(SHUIWEN_INDEX);
-	level_ind = unset_led_level(temp);break;
-  case NOW_ZUOWEN:
-	temp = get_user_value(ZUOWEN_INDEX);
-	level_ind = unset_led_level(temp);break;
-  default:level_ind = unset_led_level(0);break;
+    case NOW_FENGWEN:
+      temp = get_user_value(FENGWEN_INDEX);
+      level_ind = unset_led_level(temp);break;
+    case NOW_SHUIWEN:
+      temp = get_user_value(SHUIWEN_INDEX);
+      level_ind = unset_led_level(temp);break;
+    case NOW_ZUOWEN:
+      temp = get_user_value(ZUOWEN_INDEX);
+      level_ind = unset_led_level(temp);break;
+    default:level_ind = unset_led_level(0);break;
   }
 
   return level_ind;
@@ -434,43 +434,132 @@ void reload_led(u32 now_off_led)
   u32 ledon;
 
   if(low_low_power){
-	  if(low_power_led_indicate){
-	    now_off_led &= ~T_LED_ZUOWEN_INDICATE;
-	    ledon = T_LED_SHUIWEN_INDICATE | T_LED_FENGWEN_INDICATE;
-	    ledon &= ~now_off_led;
-	  }else{
-		  ledon = T_LED_ZUOWEN_INDICATE | T_LED_SHUIWEN_INDICATE | T_LED_FENGWEN_INDICATE;
-		  ledon &= ~now_off_led;
-	  }
-    HalLedSet(now_off_led, HAL_LED_MODE_OFF);
-    HalLedBlink(ledon, 1, 100, MS2TICK(LED_ON_TIME));
+    if(low_power_led_indicate){
+      now_off_led &= ~T_LED_ZUOWEN_INDICATE;
+      ledon = T_LED_SHUIWEN_INDICATE | T_LED_FENGWEN_INDICATE;
+      ledon &= ~now_off_led;
+    }else{
+      ledon = T_LED_ZUOWEN_INDICATE | T_LED_SHUIWEN_INDICATE | T_LED_FENGWEN_INDICATE;
+      ledon &= ~now_off_led;
+    }
   }else{
-	ledon = HAL_LED_ALL;
-	ledon &= ~now_off_led;
+    ledon = HAL_LED_ALL;
+    ledon &= ~now_off_led;
     if(low_power){
       now_off_led &= ~T_LED_ZUOWEN_INDICATE;
       ledon &= ~T_LED_ZUOWEN_INDICATE;
     }
-	HalLedSet(now_off_led, HAL_LED_MODE_OFF);
-    HalLedBlink(ledon, 1, 100, MS2TICK(LED_ON_TIME));
   }
+  HalLedSet(now_off_led, HAL_LED_MODE_OFF);
+  HalLedBlink(ledon, 1, 100, MS2TICK(LED_ON_TIME));
 }
 
 void mechinal_key_reload_led()
 {
   u32 level_ind;
 
-  if(!peidui_ok){
+  if(!reload_led_off){
     if(!is_wakeup_from_sleep()){
-	  level_ind = chk_now_level_led(now_level);
+      level_ind = chk_now_level_led(now_level);
       reload_led(level_ind);
     }
   }
-
-  if(peidui_ok)
-    peidui_ok = 0;
 }
 
+void short_key_wake_up_indicate()
+{
+  u32 level_ind;
+  u8 temp;
+
+  reload_led_off = 0;
+
+  if(is_wakeup_from_sleep())
+    clr_wakeup_flag();
+
+  switch(cur_key){
+    case M_KEY_NUANFENGHONGGAN:
+      now_level = NOW_FENGWEN;
+      level_ind = chk_now_level_led(now_level);break;
+    case M_KEY_TUNBUQINGXI:
+    case M_KEY_NVXINGQINGXI:
+      now_level = NOW_SHUIWEN;
+      level_ind = chk_now_level_led(now_level);break;
+    default:level_ind = unset_led_level(temp);break;
+  }
+  reload_led(level_ind);
+}
+
+bool is_led_level_key()
+{
+  if(cur_key == T_KEY_SHUIWENTIAOJIE ||\
+      cur_key == T_KEY_ZUOWENTIAOJIE  ||\
+      cur_key == T_KEY_FENWENTIAOJIE)
+    return 1;
+  else
+    return 0;
+}
+
+void touch_key_reload_led()
+{
+  u32 ledoff = 0;
+
+  if(!low_low_power){
+    if(is_wakeup_from_sleep()){
+      if(cur_key != T_KEY_ERTONGQINGXI)
+        clr_wakeup_flag();
+      now_level = NOW_SHUIWEN;
+    }
+
+    if(!reload_led_off || is_led_level_key()){
+      ledoff = chk_now_level_led(now_level);
+    }
+
+    switch(cur_key){
+      case T_KEY_PENZUI_UP:
+        reload_led(T_KEY_PENZUI_UP_LED | ledoff);break;
+      case T_KEY_PENZUI_DOWN:
+        reload_led(T_KEY_PENZUI_DOWN_LED | ledoff);break;
+      case T_KEY_ERTONGQINGXI:
+        reload_led(T_KEY_ERTONGQINGXI_LED | ledoff);break;
+      case T_KEY_QINGXIQIANGDU_UP:
+        reload_led(T_KEY_QINGXIQIANGDU_UP_LED | ledoff);break;
+      case T_KEY_QINGXIQIANGDU_DOWN:
+        reload_led(T_KEY_QINGXIQIANGDU_DOWN_LED | ledoff);break;
+      case T_KEY_SHUIWENTIAOJIE:
+        reload_led(T_KEY_SHUIWENTIAOJIE_LED | ledoff);break;
+      case T_KEY_ZUOWENTIAOJIE:
+        reload_led(T_KEY_ZUOWENTIAOJIE_LED | ledoff);break;
+      case T_KEY_FENWENTIAOJIE:
+        reload_led(T_KEY_FENWENTIAOJIE_LED | ledoff);break;
+      default:break;
+    }
+  }
+}
+
+void touch_key_led_breath()
+{
+  if(!low_low_power){
+    switch(cur_key){
+      case T_KEY_PENZUI_UP:
+        HalLedSet (T_KEY_PENZUI_UP_LED, HAL_LED_MODE_BREATHE);break;
+      case T_KEY_PENZUI_DOWN:
+        HalLedSet (T_KEY_PENZUI_DOWN_LED, HAL_LED_MODE_BREATHE);break;
+      case T_KEY_ERTONGQINGXI:
+        HalLedSet (T_KEY_ERTONGQINGXI_LED, HAL_LED_MODE_BREATHE);break;
+      case T_KEY_QINGXIQIANGDU_UP:
+        HalLedSet (T_KEY_QINGXIQIANGDU_UP_LED, HAL_LED_MODE_BREATHE);break;
+      case T_KEY_QINGXIQIANGDU_DOWN:
+        HalLedSet (T_KEY_QINGXIQIANGDU_DOWN_LED, HAL_LED_MODE_BREATHE);break;
+      case T_KEY_SHUIWENTIAOJIE:
+        HalLedSet (T_KEY_SHUIWENTIAOJIE_LED, HAL_LED_MODE_BREATHE);break;
+      case T_KEY_ZUOWENTIAOJIE:
+        HalLedSet (T_KEY_ZUOWENTIAOJIE_LED, HAL_LED_MODE_BREATHE);break;
+      case T_KEY_FENWENTIAOJIE:
+        HalLedSet (T_KEY_FENWENTIAOJIE_LED, HAL_LED_MODE_BREATHE);break;
+      default:break;
+    }
+  }
+}
 //"key action" "which key" "cmd-code"
 void short_m_key_chongshui_chongshui()
 {
@@ -479,27 +568,6 @@ void short_m_key_chongshui_chongshui()
   fix_pack_with_user_value(&rf_pack, CHONGSHUI);
 
   send_rf_data_yihe(&rf_pack, sizeof(rf_pack));
-}
-
-void short_key_wake_up_indicate()
-{
-  u32 level_ind;
-  u8 temp;
-
-  if(is_wakeup_from_sleep())
-	  clr_wakeup_flag();
-
-  switch(cur_key){
-  case M_KEY_NUANFENGHONGGAN:
-	now_level = NOW_FENGWEN;
-	level_ind = chk_now_level_led(now_level);break;
-  case M_KEY_TUNBUQINGXI:
-  case M_KEY_NVXINGQINGXI:
-	now_level = NOW_SHUIWEN;
-	level_ind = chk_now_level_led(now_level);break;
-  default:level_ind = unset_led_level(temp);break;
-  }
-  reload_led(level_ind);
 }
 
 void short_m_key_tingzhi_tingzhi()
@@ -607,7 +675,7 @@ void short_t_key_penzui_up_penzui_up()
 
   if(is_wakeup_from_sleep())
     //clr_wakeup_flag();
-	  ;
+    ;
   else{
     if(is_enter_set_status()){
       daogan = get_user_value(DAOGANG_INDEX);
@@ -634,7 +702,7 @@ void short_t_key_penzui_down_penzui_down()
 
   if(is_wakeup_from_sleep())
     //clr_wakeup_flag();
-	  ;
+    ;
   else{
     if(is_enter_set_status()){
       daogan = get_user_value(DAOGANG_INDEX);
@@ -671,8 +739,7 @@ void short_t_key_ertongqingxi_ertongqingxi()
   fix_pack_with_user_value(&rf_pack, ERTONGQINGXI);
 
   if(is_wakeup_from_sleep())
-    //clr_wakeup_flag();
-	  ;
+    clr_wakeup_flag();
   else
     send_rf_data_yihe(&rf_pack, sizeof(rf_pack));
 }
@@ -686,7 +753,7 @@ void short_t_key_qingxiqiangdu_up_qingxiqiangdu_up()
 
   if(is_wakeup_from_sleep())
     //clr_wakeup_flag();
-	  ;
+    ;
   else{
     if(is_enter_set_status()){
       shuiya = get_user_value(SHUIYA_INDEX);
@@ -713,7 +780,7 @@ void short_t_key_qingxiqiangdu_down_qingxiqiangdu_down()
 
   if(is_wakeup_from_sleep())
     //clr_wakeup_flag();
-	  ;
+    ;
   else{
     if(is_enter_set_status()){
       shuiya = get_user_value(SHUIYA_INDEX);
@@ -741,9 +808,9 @@ void short_t_key_shuiwentiaojie_shuiwentioajie()
 
   if(is_wakeup_from_sleep())
     //clr_wakeup_flag();
-	  ;
+    ;
   else{
-	now_level = NOW_SHUIWEN;
+    now_level = NOW_SHUIWEN;
     shuiwen = get_user_value(SHUIWEN_INDEX);
 
     shuiwen++;
@@ -773,7 +840,7 @@ void short_t_key_zuowentiaojie_zuowentiaojie()
 
   if(is_wakeup_from_sleep())
     //clr_wakeup_flag();
-	  ;
+    ;
   else{
     now_level = NOW_ZUOWEN;
     zuowen = get_user_value(ZUOWEN_INDEX);
@@ -805,9 +872,9 @@ void short_t_key_fenwentiaojie_fenwentiaojie()
 
   if(is_wakeup_from_sleep())
     //clr_wakeup_flag();
-	  ;
+    ;
   else{
-	now_level = NOW_FENGWEN;
+    now_level = NOW_FENGWEN;
     fenwen = get_user_value(FENGWEN_INDEX);
 
     fenwen++;
@@ -866,7 +933,7 @@ void long_m_key_tingzhi_yonghuduima()
         T_LED_ZUOWEN_INDICATE |\
         T_LED_FENGWEN_INDICATE), HAL_LED_MODE_ON);
 
-  HalLedBlink (T_LED_FENGWEN_INDICATE | T_LED_SHUIWEN_INDICATE | T_LED_ZUOWEN_INDICATE, 30, 50, MS2TICK(1000));
+  HalLedBlink (T_LED_FENGWEN_INDICATE | T_LED_SHUIWEN_INDICATE | T_LED_ZUOWEN_INDICATE, 30, 50, MS2TICK(920));
 
   fix_pack_with_user_value(&rf_pack, DUIMA);
 
@@ -895,7 +962,9 @@ void long_m_key_tingzhi_yonghuduima()
         uid = new_id;
         clr_app_read_key_flag();
         HalLedBlink (T_LED_FENGWEN_INDICATE | T_LED_SHUIWEN_INDICATE | T_LED_ZUOWEN_INDICATE, 1, 100, MS2TICK(5000));
-        peidui_ok = 1;
+        peidui_ok_exit = 1;
+        reload_led_off = 1;
+        peidui_ok_exit_time = clock_time();
         reload_sys_time();
         return;
       }
@@ -910,65 +979,7 @@ void long_m_key_tingzhi_yonghuduima()
   }
 }
 
-void touch_key_reload_led()
-{
-//  u8 temp;
-  u32 ledoff;
-  if(!low_low_power){
-  if(is_wakeup_from_sleep()){
-	clr_wakeup_flag();
-	now_level = NOW_SHUIWEN;
-	//temp = get_user_value(SHUIWEN_INDEX);
-  //  ledoff = unset_led_level(temp);
-  }//else
-	ledoff = chk_now_level_led(now_level);
 
-  switch(cur_key){
-    case T_KEY_PENZUI_UP:
-      reload_led(T_KEY_PENZUI_UP_LED | ledoff);break;
-    case T_KEY_PENZUI_DOWN:
-      reload_led(T_KEY_PENZUI_DOWN_LED | ledoff);break;
-    case T_KEY_ERTONGQINGXI:
-      reload_led(T_KEY_ERTONGQINGXI_LED | ledoff);break;
-    case T_KEY_QINGXIQIANGDU_UP:
-      reload_led(T_KEY_QINGXIQIANGDU_UP_LED | ledoff);break;
-    case T_KEY_QINGXIQIANGDU_DOWN:
-      reload_led(T_KEY_QINGXIQIANGDU_DOWN_LED | ledoff);break;
-    case T_KEY_SHUIWENTIAOJIE:
-      reload_led(T_KEY_SHUIWENTIAOJIE_LED | ledoff);break;
-    case T_KEY_ZUOWENTIAOJIE:
-      reload_led(T_KEY_ZUOWENTIAOJIE_LED | ledoff);break;
-    case T_KEY_FENWENTIAOJIE:
-      reload_led(T_KEY_FENWENTIAOJIE_LED | ledoff);break;
-    default:break;
-    }
-  }
-}
-
-void touch_key_led_breath()
-{
-	if(!low_low_power){
-  switch(cur_key){
-    case T_KEY_PENZUI_UP:
-      HalLedSet (T_KEY_PENZUI_UP_LED, HAL_LED_MODE_BREATHE);break;
-    case T_KEY_PENZUI_DOWN:
-      HalLedSet (T_KEY_PENZUI_DOWN_LED, HAL_LED_MODE_BREATHE);break;
-    case T_KEY_ERTONGQINGXI:
-      HalLedSet (T_KEY_ERTONGQINGXI_LED, HAL_LED_MODE_BREATHE);break;
-    case T_KEY_QINGXIQIANGDU_UP:
-      HalLedSet (T_KEY_QINGXIQIANGDU_UP_LED, HAL_LED_MODE_BREATHE);break;
-    case T_KEY_QINGXIQIANGDU_DOWN:
-      HalLedSet (T_KEY_QINGXIQIANGDU_DOWN_LED, HAL_LED_MODE_BREATHE);break;
-    case T_KEY_SHUIWENTIAOJIE:
-      HalLedSet (T_KEY_SHUIWENTIAOJIE_LED, HAL_LED_MODE_BREATHE);break;
-    case T_KEY_ZUOWENTIAOJIE:
-      HalLedSet (T_KEY_ZUOWENTIAOJIE_LED, HAL_LED_MODE_BREATHE);break;
-    case T_KEY_FENWENTIAOJIE:
-      HalLedSet (T_KEY_FENWENTIAOJIE_LED, HAL_LED_MODE_BREATHE);break;
-    default:break;
-  }
-	}
-}
 
 void power_on_led()
 {
@@ -985,7 +996,6 @@ void power_on_led()
 void app_init()
 {
   if(!is_wakeup_from_sleep()){
-    //power_on_led();
     set_default_user_value();
     read_id(&uid, 4);
   }
@@ -1022,8 +1032,8 @@ void app_init()
   register_key_event(M_KEY_FANQUANG,           0,  0, 0, SHORT_KEY_IMMEDIATELY, short_m_key_fanquang_fanquang);
   register_key_event(M_KEY_FANQUANG,           0,  0, 0, NO_TIME_LIMIT_KEY_ON, mechinal_key_reload_led);
 
-  register_key_event(M_KEY_LENGREANMO,    M_KEY_PENZUIQINGJIE, MS2TICK(3000), 0, COMBIN_KEY, combin_m_key_lengreanmo_m_key_penzuiqingjie_weibo);
-  register_key_event(M_KEY_PENZUIQINGJIE, M_KEY_LENGREANMO,    MS2TICK(3000), 0, COMBIN_KEY, combin_m_key_lengreanmo_m_key_penzuiqingjie_weibo);
+  register_key_event(M_KEY_LENGREANMO,    M_KEY_PENZUIQINGJIE, MS2TICK(3000), 0, COMBIN_KEY_IN_TIME, combin_m_key_lengreanmo_m_key_penzuiqingjie_weibo);
+  register_key_event(M_KEY_PENZUIQINGJIE, M_KEY_LENGREANMO,    MS2TICK(3000), 0, COMBIN_KEY_IN_TIME, combin_m_key_lengreanmo_m_key_penzuiqingjie_weibo);
 
   register_key_event(T_KEY_PENZUI_UP,          0, 0, 0, SHORT_KEY_IMMEDIATELY, short_t_key_penzui_up_penzui_up);
   register_key_event(T_KEY_PENZUI_UP,          0, 0, 0, NO_TIME_LIMIT_KEY_RELEASED, touch_key_led_breath);

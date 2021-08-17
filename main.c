@@ -82,24 +82,11 @@ const key_type_t key_enum_arry[MAX_KEYS] = {
   {KEY17, TOUCH_KEY, apt8_init, apt8_read, apt8_read},
 };
 
-bool is_mechinal_key()
-{
-
-	if(cur_key == M_KEY_CHONGSHUI ||\
-	   cur_key == M_KEY_TUNBUQINGXI ||\
-	   cur_key == M_KEY_NUANFENGHONGGAN ||\
-	   cur_key == M_KEY_YEDENG ||\
-	   cur_key == M_KEY_FANGGAI ||\
-	   cur_key == M_KEY_TINGZHI ||\
-	   cur_key == M_KEY_NVXINGQINGXI ||\
-	   cur_key == M_KEY_LENGREANMO ||\
-	   cur_key == M_KEY_PENZUIQINGJIE ||\
-	   cur_key == M_KEY_FANQUANG)
-		return 1;
-	else
-		return 0;
-}
-
+//低电压上电检测一次，休眠唤醒检测一次
+//电池电压低于2.3v,禁能触摸按键，关闭除水温灯的其他灯，水温灯闪烁报警，
+//电池电压低于2.5v，水温灯闪烁报警，触摸按键可以使用，其他灯可以正常显示，档位可以变化，报警时间结束之后，显示之前设置的档位
+//配对结束之后，灯亮5s，5s结束之后，显示之前的档位
+//配对结束之后，灯亮5s的过程中间，按其他按键显示之前的档位
 int main(void)
 {
   blc_pm_select_internal_32k_crystal();
@@ -150,7 +137,7 @@ int main(void)
   app_init();
 
   if(!is_wakeup_from_sleep())
-	only_once = 1;
+    only_once = 1;
 
   if(!is_wakeup_from_sleep())
     idle_time_for_sleep(SLEEP_WAIT_TIME);
@@ -167,12 +154,12 @@ int main(void)
       low_bat_check = 0;
 
       if(is_low_power(THRESHOLD_2_3)){
-    	  apt_enter_sleep();
-          low_low_power = 1;
-          low_power_led_indicate = 1;
+        apt_enter_sleep();
+        low_low_power = 1;
+        low_power_led_indicate = 1;
       }else{
-    	  low_low_power = 0;
-    	  apt_exit_sleep();
+        low_low_power = 0;
+        apt_exit_sleep();
       }
 
       if(is_low_power(THRESHOLD)){
@@ -181,35 +168,48 @@ int main(void)
     }
 
     if(start_low_power_led_indi){
-    	if(is_mechinal_key()  && (low_low_power || low_power)){
-    	start_low_power_led_indi = 0;
-    	if(low_low_power)
+      if(low_low_power || low_power){
+        start_low_power_led_indi = 0;
+        if(low_low_power)
           HalLedSet(HAL_LED_ALL^(T_LED_ZUOWEN_INDICATE | T_LED_SHUIWEN_INDICATE | T_LED_FENGWEN_INDICATE) , HAL_LED_MODE_OFF);
-    	HalLedBlink(T_LED_ZUOWEN_INDICATE, 5, 50, MS2TICK(1000));//5s
-    	zuo_wen_led_time_ref = clock_time();
-    	led_low_power_indi = 1;
-    	}
+        HalLedBlink(T_LED_ZUOWEN_INDICATE, 5, 50, MS2TICK(1000));//5s
+        zuo_wen_led_time_ref = clock_time();
+        led_low_power_indi = 1;
+      }
     }
 
+    //check if low power indicate time out
     if(led_low_power_indi){
       if(n_clock_time_exceed(zuo_wen_led_time_ref, 5000000)){//5S
-    	  led_low_power_indi = 0;
+        led_low_power_indi = 0;
         if(low_power)
-        	low_power = 0;
+          low_power = 0;
         if(low_power_led_indicate)
-        	low_power_led_indicate = 0;
-  	  u32 level_ind;
-  	  level_ind = chk_now_level_led(now_level);
-  	  reload_led(level_ind);
+          low_power_led_indicate = 0;
+        u32 level_ind;
+        level_ind = chk_now_level_led(now_level);
+        reload_led(level_ind);
+      }
+    }
+
+    if(peidui_ok_exit){
+      if(n_clock_time_exceed(peidui_ok_exit_time, 5000000)){
+        peidui_ok_exit = 0;
+        if(reload_led_off){
+          reload_led_off = 0;
+          u32 level_ind;
+          level_ind = chk_now_level_led(now_level);
+          reload_led(level_ind);
+        }
       }
     }
 
     if(only_once && !low_low_power){
-    	only_once = 0;
-        power_on_led();
+      only_once = 0;
+      power_on_led();
     }
 
-	poll_key_event();
+    poll_key_event();
 
     if(poll_idle_time()){
       HalLedSet(HAL_LED_ALL, HAL_LED_MODE_OFF);
