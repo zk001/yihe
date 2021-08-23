@@ -20,12 +20,13 @@ typedef struct {
 }__attribute__((packed))rf_package_t;
 
 typedef enum{
-  NOW_SHUIWEN = 1,
+  NOW_NULL = 0,
+  NOW_SHUIWEN,
   NOW_FENGWEN,
   NOW_ZUOWEN
 }now_level_t;
 
-extern _attribute_data_retention_  now_level_t now_level;
+extern now_level_t now_level;
 
 #define M_KEY_CHONGSHUI          KEY8
 #define M_KEY_TUNBUQINGXI        KEY4 //WAKE UP
@@ -92,15 +93,13 @@ extern _attribute_data_retention_  now_level_t now_level;
 #define LED_BRIGHT_LEVEL 40
 
 #define PAIR_KEY_VALUE	0x55
-#define MAX_EVENT       55//the number is the register_key_event call times
+#define MAX_EVENT       35//e number is the register_key_event call times
 
 extern bool peidui_ok_exit;
-extern bool reload_led_off;
 extern u32 peidui_ok_exit_time;
 
 extern void app_init();
 extern void power_on_led();
-extern void reload_led(u32 now_off_led);
-extern u32 chk_now_level_led(now_level_t level);
+extern void chk_now_level_led(now_level_t level);
 
 #endif
