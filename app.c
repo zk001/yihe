@@ -483,7 +483,7 @@ bool is_touch_key_wakeup()
 {
   if(wakeup_key == T_KEY_PENZUI_UP)
     return 1;
-  if(wakeup_key == T_KEY_PENZUI_DOWN)
+  else if(wakeup_key == T_KEY_PENZUI_DOWN)
 	return 1;
   else if(wakeup_key == T_KEY_ERTONGQINGXI)
     return 1;
@@ -969,7 +969,6 @@ void long_m_key_tingzhi_yonghuduima()
   while(1){
     if(!HalLedUpdate(NULL)){
       rf_8359_set_tx();
-      clr_app_read_key_flag();
       reload_sys_time();
       return;
     }
@@ -987,7 +986,6 @@ void long_m_key_tingzhi_yonghuduima()
         rf_8359_set_tx();
         write_id(&new_id, 4);
         uid = new_id;
-        clr_app_read_key_flag();
         HalLedBlink (T_LED_FENGWEN_INDICATE | T_LED_SHUIWEN_INDICATE | T_LED_ZUOWEN_INDICATE, 1, 100, MS2TICK(5000));
         peidui_ok_exit = 1;
         peidui_ok_exit_time = clock_time();

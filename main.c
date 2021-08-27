@@ -18,6 +18,7 @@
 #include "timer_clock.h"
 #include "wakeup.h"
 #include "i2c_gpio_set.h"
+#include "prevent_system_crash.h"
 
 MEMPOOL_DECLARE(KEY_EVENT_POOL, KEY_EVENT_POOL_MEM, sizeof(mem_block_t) + sizeof(event_handler_t), MAX_EVENT);
 _attribute_data_retention_ key_map_t key_arry[MAX_GPIO_KEYS] = {
@@ -102,6 +103,8 @@ int main(void)
   clock_init(SYS_CLK_24M_Crystal);
 
   gpio_init(1);
+
+  prevent_system_crash();
 
   dc_power_on();
 
